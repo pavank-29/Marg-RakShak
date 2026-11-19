@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TrackPulse - 1-Second High-Precision Real-Time Fleet Tracker</title>
+    <meta name="description" content="Production-grade real-time fleet & courier tracker with 1-second interval GPS sync, smooth lerp marker motion, compass heading, and turn-by-turn navigation.">
+    
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛰️</text></svg>">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Leaflet Routing Machine CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+    <!-- App Container -->
+    <div class="app-layout">
+        
+        <!-- Top Navigation Header -->
+        <header class="glass-header" id="mainHeader">
+            <div class="header-left">
+                <div class="logo-wrapper">
+                    <div class="radar-pulse"></div>
+                    <i class="fa-solid fa-satellite-dish logo-icon"></i>
+                </div>
+                <div class="brand-text">
+                    <h1 class="brand-title">Track<span>Pulse</span></h1>
+                    <span class="live-badge"><span class="badge-dot"></span> ULTRA-FAST LIVE</span>
+                </div>
+            </div>
+
+            <div class="header-center">
+                <!-- Status Pills -->
+                <div class="status-pill socket-pill" id="socketStatusPill" title="Connection Status">
+                    <span class="status-indicator online" id="socketIndicator"></span>
+                    <span id="socketStatusText">Connected</span>
+                    <span class="ping-badge" id="pingBadge">-- ms</span>
+                </div>
+
+                <div class="status-pill gps-pill" id="gpsStatusPill" title="GPS Precision Status">
+                    <i class="fa-solid fa-crosshairs"></i>
+                    <span id="gpsStatusText">GPS Active</span>
+                    <span class="accuracy-badge" id="gpsAccuracyBadge">±5m</span>
+                </div>
+
+                <div class="status-pill users-pill" id="usersStatusPill" title="Active Fleet Online">
+                    <i class="fa-solid fa-truck-fast"></i>
+                    <span id="activeUsersCount">1</span> Fleet
+                </div>
+            </div>
+
+            <div class="header-right">
+                <!-- Map Layer Switcher Dropdown -->
+                <div class="dropdown-wrapper">
+                    <button class="header-btn" id="layerBtn" title="Change Map Style" aria-label="Map Layers">
+                        <i class="fa-solid fa-layer-group"></i>
+                        <span class="btn-text">Map Style</span>
+                    </button>
+                    <div class="dropdown-menu" id="layerMenu">
+                        <button class="dropdown-item active" data-layer="dark">
+                            <i class="fa-solid fa-moon"></i> Modern Dark (Default)
+                        </button>
+                        <button class="dropdown-item" data-layer="osm">
+                            <i class="fa-solid fa-map"></i> OpenStreetMap Standard
+                        </button>
+                        <button class="dropdown-item" data-layer="voyager">
+                            <i class="fa-solid fa-compass"></i> CartoDB Clean
+                        </button>
+                        <button class="dropdown-item" data-layer="satellite">
+                            <i class="fa-solid fa-earth-americas"></i> Satellite View
+                        </button>
+                    </div>
+                </div>
+
+                <!-- API Keys Settings Button -->
+                <button class="header-btn" id="settingsBtn" title="Configure API Keys" aria-label="API Keys">
+                    <i class="fa-solid fa-key"></i>
+                    <span class="btn-text">API Keys</span>
+                </button>
+
+                <!-- Active Fleet Drawer Toggle -->
+                <button class="header-btn" id="toggleFleetBtn" title="View Active Trackers" aria-label="Active Trackers">
+                    <i class="fa-solid fa-list-ul"></i>
+                    <span class="btn-text">Live Fleet</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Floating Route Planning Card -->
+        <aside class="route-panel glass-panel" id="routePanel">
+            <div class="panel-header">
+                <div class="panel-title">
+                    <i class="fa-solid fa-route"></i>
+                    <h2>Route Dispatcher</h2>
+                </div>
+                <button class="icon-toggle-btn" id="collapsePanelBtn" title="Toggle Route Panel" aria-label="Toggle Panel">
+                    <i class="fa-solid fa-chevron-up"></i>
+                </button>
+            </div>
+
+            <div class="panel-body" id="panelBody">
+                <!-- Travel Mode Selector -->
+                <div class="travel-modes" role="tablist">
+                    <button class="mode-btn active" data-mode="driving" title="Driving Route">
+                        <i class="fa-solid fa-car"></i>
+                        <span>Car</span>
+                    </button>
+                    <button class="mode-btn" data-mode="cycling" title="Cycling Route">
+                        <i class="fa-solid fa-motorcycle"></i>
+                        <span>Bike</span>
+                    </button>
+                    <button class="mode-btn" data-mode="walking" title="Walking Route">
+                        <i class="fa-solid fa-person-walking"></i>
+                        <span>Walk</span>
+                    </button>
+                </div>
+
+                <!-- Source Point Input -->
+                <div class="input-group">
+                    <div class="input-label">
+                        <span class="point-badge source-badge"><i class="fa-solid fa-circle-dot"></i> Start Point</span>
+                        <div class="label-actions">
+                            <button type="button" class="mini-btn" id="useMyGpsBtn" title="Use current GPS as start point">
+                                <i class="fa-solid fa-crosshairs"></i> Current GPS
+                            </button>
+                            <button type="button" class="mini-btn" id="pickSourceBtn" title="Click on map to choose start point">
+                                <i class="fa-solid fa-map-pin"></i> Pick on Map
+                            </button>
+                        </div>
+                    </div>
+                    <div class="input-field-wrapper">
+                        <i class="fa-solid fa-location-dot input-icon start-icon"></i>
+                        <input type="text" id="sourceInput" placeholder="Search address or click on map..." autocomplete="off" />
+                        <button type="button" class="clear-input-btn" id="clearSourceBtn" title="Clear">&times;</button>
+                    </div>
+                    <div class="search-results" id="sourceResults"></div>
+                </div>
+
+                <!-- Swap Points Button -->
+                <div class="swap-divider">
+                    <button type="button" class="swap-btn" id="swapPointsBtn" title="Swap Start & Destination">
+                        <i class="fa-solid fa-arrow-down-up-across-line"></i>
+                    </button>
+                </div>
+
+                <!-- Destination Point Input -->
+                <div class="input-group">
+                    <div class="input-label">
+                        <span class="point-badge dest-badge"><i class="fa-solid fa-flag-checkered"></i> Destination</span>
+                        <div class="label-actions">
+                            <button type="button" class="mini-btn" id="pickDestBtn" title="Click on map to choose destination">
+                                <i class="fa-solid fa-map-pin"></i> Pick on Map
+                            </button>
+                        </div>
+                    </div>
+                    <div class="input-field-wrapper">
+                        <i class="fa-solid fa-flag-checkered input-icon dest-icon"></i>
+                        <input type="text" id="destInput" placeholder="Search destination address or click map..." autocomplete="off" />
+                        <button type="button" class="clear-input-btn" id="clearDestBtn" title="Clear">&times;</button>
+                    </div>
+                    <div class="search-results" id="destResults"></div>
+                </div>
+
+                <!-- Action Controls -->
+                <div class="panel-actions">
+                    <button type="button" class="btn btn-primary" id="calculateRouteBtn">
+                        <i class="fa-solid fa-diamond-turn-right"></i> Draw Route
+                    </button>
+                    <button type="button" class="btn btn-secondary" id="resetRouteBtn" title="Reset markers and route">
+                        <i class="fa-solid fa-rotate-left"></i> Reset
+                    </button>
+                </div>
+
+                <!-- Trip Metrics Box (Hidden until route calculated) -->
+                <div class="trip-summary" id="tripSummary" style="display: none;">
+                    <div class="trip-stats-grid">
+                        <div class="stat-card">
+                            <i class="fa-solid fa-road stat-icon"></i>
+                            <div class="stat-info">
+                                <span class="stat-label">Total Distance</span>
+                                <span class="stat-value" id="tripDistance">-- km</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <i class="fa-solid fa-clock stat-icon"></i>
+                            <div class="stat-info">
+                                <span class="stat-label">Estimated Time</span>
+                                <span class="stat-value" id="tripDuration">-- min</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Simulation Controls -->
+                    <div class="simulation-box">
+                        <div class="sim-header">
+                            <span><i class="fa-solid fa-gamepad"></i> 1-Sec Live Demo Simulation</span>
+                            <span class="sim-status" id="simStatus">Ready</span>
+                        </div>
+                        <div class="sim-controls">
+                            <button type="button" class="sim-btn" id="startSimBtn">
+                                <i class="fa-solid fa-play"></i> Start Demo Drive
+                            </button>
+                            <button type="button" class="sim-btn secondary" id="stopSimBtn" disabled>
+                                <i class="fa-solid fa-stop"></i> Stop
+                            </button>
+                            <div class="sim-speed-wrapper">
+                                <label for="simSpeedSelect">Speed:</label>
+                                <select id="simSpeedSelect">
+                                    <option value="1">1x Normal</option>
+                                    <option value="2">2x Fast</option>
+                                    <option value="4" selected>4x Turbo</option>
+                                    <option value="8">8x Ultra</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="sim-progress-bar">
+                            <div class="sim-progress-fill" id="simProgressFill"></div>
+                        </div>
+                    </div>
+
+                    <!-- Directions Accordion Toggle -->
+                    <button type="button" class="directions-toggle-btn" id="toggleDirectionsBtn">
+                        <span><i class="fa-solid fa-list-ol"></i> Step-by-Step Directions</span>
+                        <i class="fa-solid fa-chevron-down toggle-icon" id="directionsChevron"></i>
+                    </button>
+                    <div class="directions-list" id="directionsList" style="display: none;"></div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Live Driver Telemetry HUD (Bottom Bar) -->
+        <div class="telemetry-hud glass-panel" id="telemetryHud">
+            <!-- HUD Toggle / Minimize -->
+            <button type="button" class="hud-collapse-btn" id="hudCollapseBtn" title="Toggle HUD">
+                <i class="fa-solid fa-chevron-down"></i>
+            </button>
+
+            <div class="hud-content">
+                <!-- 1. Speedometer Gauge -->
+                <div class="hud-item hud-speed">
+                    <div class="speedometer-circle">
+                        <svg class="speedo-svg" viewBox="0 0 100 100">
+                            <defs>
+                                <linearGradient id="speedoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#06b6d4" />
+                                    <stop offset="100%" stop-color="#3b82f6" />
+                                </linearGradient>
+                            </defs>
+                            <circle class="speedo-bg" cx="50" cy="50" r="42" />
+                            <circle class="speedo-bar" id="speedoBar" cx="50" cy="50" r="42" />
+                        </svg>
+                        <div class="speed-readout">
+                            <span class="speed-num" id="hudSpeed">0</span>
+                            <span class="speed-unit">km/h</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Compass & Heading -->
+                <div class="hud-item hud-compass">
+                    <div class="compass-dial" id="compassDial">
+                        <div class="compass-needle" id="compassNeedle"></div>
+                        <div class="compass-n">N</div>
+                    </div>
+                    <div class="compass-text">
+                        <span class="heading-deg" id="hudHeadingDeg">0°</span>
+                        <span class="heading-cardinal" id="hudHeadingCardinal">NORTH</span>
+                    </div>
+                </div>
+
+                <!-- 3. GPS Coordinates & Sync Pulse -->
+                <div class="hud-item hud-geo">
+                    <div class="sync-indicator-wrapper">
+                        <span class="pulse-led active" id="heartbeatLed"></span>
+                        <span class="sync-rate-label">⚡ Fast Live Sync</span>
+                    </div>
+                    <div class="geo-readout">
+                        <span class="coord-val" id="hudCoords">Lat: 0.0000, Lng: 0.0000</span>
+                        <span class="accuracy-val" id="hudAccuracy">Precision: ±0m (High Accuracy)</span>
+                    </div>
+                </div>
+
+                <!-- 4. Vehicle Type Selector -->
+                <div class="hud-item hud-vehicle-picker">
+                    <span class="vehicle-picker-label">Vehicle Mode:</span>
+                    <div class="vehicle-options">
+                        <button type="button" class="vehicle-btn active" data-vehicle="car" title="Car / Taxi">
+                            <i class="fa-solid fa-car"></i>
+                        </button>
+                        <button type="button" class="vehicle-btn" data-vehicle="bike" title="Delivery Motorcycle">
+                            <i class="fa-solid fa-motorcycle"></i>
+                        </button>
+                        <button type="button" class="vehicle-btn" data-vehicle="van" title="Fleet Van">
+                            <i class="fa-solid fa-truck"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 5. Camera Lock & Path Trail Toggle Buttons -->
+                <div class="hud-item hud-toggles">
+                    <button type="button" class="hud-toggle-btn active" id="cameraFollowBtn" title="Auto-center map on moving driver">
+                        <i class="fa-solid fa-video"></i>
+                        <span>Follow Cam</span>
+                    </button>
+                    <button type="button" class="hud-toggle-btn active" id="breadcrumbToggleBtn" title="Show glowing path trail">
+                        <i class="fa-solid fa-route"></i>
+                        <span>Path Trail</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Active Users / Fleet Sidebar Drawer -->
+        <div class="fleet-drawer glass-panel" id="fleetDrawer">
+            <div class="drawer-header">
+                <h3><i class="fa-solid fa-satellite"></i> Active Fleet (<span id="fleetCount">1</span>)</h3>
+                <button class="close-drawer-btn" id="closeFleetBtn">&times;</button>
+            </div>
+            <div class="drawer-content" id="fleetList">
+                <div class="empty-fleet">Waiting for live location signals...</div>
+            </div>
+        </div>
+
+        <!-- Floating Map Utility Buttons (Bottom Right) -->
+        <div class="map-controls-group">
+            <button class="map-ctrl-btn" id="recenterBtn" title="Center to My Location" aria-label="Locate Me">
+                <i class="fa-solid fa-crosshairs"></i>
+            </button>
+            <button class="map-ctrl-btn" id="fitRouteBtn" title="Fit Route in View" aria-label="Fit Route">
+                <i class="fa-solid fa-expand"></i>
+            </button>
+            <button class="map-ctrl-btn" id="zoomInBtn" title="Zoom In" aria-label="Zoom In">
+                <i class="fa-solid fa-plus"></i>
+            </button>
+            <button class="map-ctrl-btn" id="zoomOutBtn" title="Zoom Out" aria-label="Zoom Out">
+                <i class="fa-solid fa-minus"></i>
+            </button>
+        </div>
+
+        <!-- Help / Tips Banner (Bottom Left) -->
+        <div class="tips-banner glass-panel" id="tipsBanner">
+            <i class="fa-regular fa-lightbulb tip-icon"></i>
+            <span class="tip-text" id="tipText">💡 Tip: Exact 1-second transmission is active! Click 'Start Demo Drive' to simulate live movement.</span>
+            <button class="close-tip-btn" id="closeTipBtn" title="Dismiss">&times;</button>
+        </div>
+
+        <!-- Leaflet Map Container -->
+        <div id="map"></div>
+
+        <!-- API Keys Settings Modal -->
+        <div class="modal-overlay" id="settingsModal" style="display: none;">
+            <div class="glass-panel modal-card">
+                <div class="modal-header">
+                    <h3><i class="fa-solid fa-sliders"></i> Map & Geocoding API Keys</h3>
+                    <button type="button" class="close-modal-btn" id="closeSettingsBtn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p class="modal-desc">
+                        Default setup runs 100% free with OpenStreetMap and Nominatim geocoding. If you need high-resolution vector tiles or enterprise quota, enter your keys below:
+                    </p>
+
+                    <!-- MapTiler Key -->
+                    <div class="setting-item">
+                        <label for="maptilerKeyInput">
+                            <span class="label-title"><i class="fa-solid fa-map-location-dot"></i> MapTiler Key (Vector/Raster Tiles)</span>
+                            <a href="https://cloud.maptiler.com/account/keys/" target="_blank" rel="noopener" class="help-link">Free Key &rarr;</a>
+                        </label>
+                        <input type="text" id="maptilerKeyInput" placeholder="e.g. your_maptiler_api_key..." autocomplete="off" />
+                        <span class="input-hint">100,000 requests/month free quota.</span>
+                    </div>
+
+                    <!-- LocationIQ Key -->
+                    <div class="setting-item">
+                        <label for="locationiqKeyInput">
+                            <span class="label-title"><i class="fa-solid fa-magnifying-glass-location"></i> LocationIQ Key (Fast Geocoding)</span>
+                            <a href="https://locationiq.com/" target="_blank" rel="noopener" class="help-link">Free Key &rarr;</a>
+                        </label>
+                        <input type="text" id="locationiqKeyInput" placeholder="e.g. pk.your_locationiq_token..." autocomplete="off" />
+                        <span class="input-hint">5,000 requests/day address autocomplete free.</span>
+                    </div>
+
+                    <!-- Live Fleet WebSocket Server URL -->
+                    <div class="setting-item">
+                        <label for="serverUrlInput">
+                            <span class="label-title"><i class="fa-solid fa-server"></i> Live Fleet Server URL</span>
+                            <span class="optional-badge">Optional</span>
+                        </label>
+                        <input type="url" id="serverUrlInput" placeholder="e.g. https://your-tracker-backend.onrender.com" autocomplete="off" />
+                        <span class="input-hint">Leave blank for standalone demo & local GPS. Set if your Node.js/Socket.io backend is on Render, Railway, or Fly.io.</span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="resetKeysBtn">Reset to Default</button>
+                    <button type="button" class="btn btn-primary" id="saveKeysBtn">Save & Apply</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast Notifications Container -->
+        <div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Leaflet Routing Machine JS -->
+    <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+    
+    <!-- Socket.io JS (Bundled local client with automated CDN fallback) -->
+    <script src="/js/socket.io.min.js"></script>
+    <script>
+        if (typeof io === 'undefined') {
+            document.write('<script src="https://cdn.socket.io/4.8.1/socket.io.min.js"><\/script>');
+        }
+    </script>
+
+    <!-- Custom JS -->
+    <script src="/js/script.js"></script>
+</body>
+</html>

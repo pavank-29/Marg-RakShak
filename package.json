@@ -1,0 +1,18 @@
+{
+  "name": "margrakshak-ai-project",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MargRakshak AI — Accident Hotspot Detection and Risk Prediction System",
+  "scripts": {
+    "check-db": "py check_db.py",
+    "check-db:all": "py check_db.py --all",
+    "check-db:hotspots": "py check_db.py hotspots",
+    "check-db:users": "py check_db.py users",
+    "check-db:accidents": "py check_db.py accidents",
+    "check-db:history": "py check_db.py history",
+    "test-db": "powershell -Command \"cd BackEnd; py -m pytest tests/test_database.py\"",
+
+    "dev:frontend": "npm run dev --prefix FrontEnd",
+    "dev:backend": "powershell -Command \"cd BackEnd; py -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload\""
+  }
+}
