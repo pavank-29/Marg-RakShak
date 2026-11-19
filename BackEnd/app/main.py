@@ -41,6 +41,10 @@ app = FastAPI(
 
 # CORS middleware for React frontend (allows all origins in dev, restricted in prod)
 cors_origins = ["*"] if settings.ENVIRONMENT == "development" else settings.CORS_ORIGINS
+# Append production frontend URL if configured (set FRONTEND_URL on Render)
+if settings.ENVIRONMENT != "development" and settings.FRONTEND_URL:
+    if settings.FRONTEND_URL not in cors_origins:
+        cors_origins = list(cors_origins) + [settings.FRONTEND_URL]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,

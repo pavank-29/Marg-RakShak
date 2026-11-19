@@ -2,18 +2,20 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({mode}) => ({
   plugins: [react()],
   server: {
     port: 3000,
     open: true,
-    proxy: {
+    proxy: mode === 'development' ? {
       '/api': {
-        target: 'http://localhost:8000',
+        // Dev proxy: points to local FastAPI backend
+        // On Render, VITE_API_URL is set and api.js uses it directly — no proxy needed in production build
+        target: process.env.VITE_API_URL || 'http://localhost:8000',
         changeOrigin: true,
         ws: true,
       }
-    }
+    } : undefined
   },
   build: {
     // Raise chunk size warning limit to avoid noise
@@ -33,4 +35,4 @@ export default defineConfig({
       }
     }
   }
-})
+}))

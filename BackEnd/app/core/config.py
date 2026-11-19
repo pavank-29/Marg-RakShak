@@ -39,6 +39,8 @@ class Settings(AppBaseSettings):
         "http://127.0.0.1:3000",
         "http://localhost:8000"
     ]
+    # Production frontend URL — set FRONTEND_URL env var on Render (e.g. https://margrakshak-frontend.onrender.com)
+    FRONTEND_URL: Optional[str] = None
 
     # Database Settings (Default: Fast, Serverless SQLite for zero-config portability and high reliability)
     DATABASE_URL: str = "sqlite:///./margrakshak.db"

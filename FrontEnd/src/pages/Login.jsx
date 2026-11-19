@@ -117,7 +117,9 @@ export default function Login() {
           body: loginPayload,
         });
       } catch {
-        res = await fetch('http://localhost:8000/api/v1/auth/login', {
+        // Fallback: use VITE_API_URL env var if set, otherwise relative path (works on Render)
+        const baseUrl = import.meta.env.VITE_API_URL ? String(import.meta.env.VITE_API_URL).replace(/\/$/, '') : '';
+        res = await fetch(`${baseUrl}/api/v1/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: loginPayload,

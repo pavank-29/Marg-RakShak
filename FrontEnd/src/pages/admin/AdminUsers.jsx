@@ -74,7 +74,7 @@ export default function AdminUsers() {
       }
     } catch (err) {
       console.error('Failed to load users from backend:', err);
-      setFetchError(err.message || 'Unable to connect to backend server at http://localhost:8000');
+      setFetchError(err.message || 'Unable to connect to backend server. Check VITE_API_URL configuration.');
     } finally {
       setIsLoading(false);
     }
